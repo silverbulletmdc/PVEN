@@ -103,7 +103,7 @@ python main.py eval -c configs/veri776_b64_parsing.yml
 
 ## Citation
 If you found our method helpful in your research, please cite our work in your publication. 
-```shell
+```bibtex
 @inproceedings{meng2020parsing,
   title={Parsing-based View-aware Embedding Network for Vehicle Re-Identification},
   author={Meng, Dechao and Li, Liang and Liu, Xuejing and Li, Yadong and Yang, Shijie and Zha, Zheng-Jun and Gao, Xingyu and Wang, Shuhui and Huang, Qingming},
