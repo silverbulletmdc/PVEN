@@ -47,7 +47,7 @@ For different dataset, we provide the generate scripts to help you generate the 
 ```shell
 cd examples/preprocess_data
 # For VeRi776
-python preprocess_veri776.py --input-path <VeRi_PATH> --output-path veri776.pkl
+python preprocess_veri776.py --input-path <VeRi_PATH> --output-path ../outputs/veri776.pkl
 # For VehicleID and VeRiWild
 # Will be published soon
 ```
@@ -65,7 +65,7 @@ The vertexs information is in `examples/parsing/poly.json`.
 Run following command to convert the polygons to parsing masks
 ```
 cd examples/parsing
-python veri776_poly2mask.py --input-path poly.json --output-path veri776_parsing3165
+python veri776_poly2mask.py --input-path poly.json --output-path ../outputs/veri776_parsing3165
 ```
 The parsing masks will be generated in `veri776_parsing3165` folder.
 
@@ -74,7 +74,7 @@ The parsing masks will be generated in `veri776_parsing3165` folder.
 Run following command to train the parsing model
 ```
 cd examples/parsing
-python train_parsing.py --trainset trainval --masks-path veri776_parsing3165 --image-path <VeRi_PATH>/image_train
+python train_parsing.py --trainset trainval --masks-path ../outputs/veri776_parsing3165 --image-path <VeRi_PATH>/image_train
 ```
 where the `<VeRi_PATH>` is the path of your VeRi776 dataset.
 
@@ -82,7 +82,7 @@ where the `<VeRi_PATH>` is the path of your VeRi776 dataset.
 Running the following command to generate masks for the whole ReID dataset and write the `mask_path` to the dataset pickle file. 
 ```
 cd examples/parsing
-python generate_masks.py --model-path best_model_trainval.pth --reid-pkl-path <PKL_PATH> --output-path masks
+python generate_masks.py --model-path best_model_trainval.pth --reid-pkl-path ../outputs/veri776.pkl --output-path ../outputs/masks
 ```
 where the `<PKL_PATH>` is the generated pickle file above. 
 
@@ -91,7 +91,7 @@ Run the following model to train the PVEN ReID model.
 ```shell
 cd examples/parsing_reid
 # For VeRi776
-CUDA_VISIBLE_DEVICES=0 python main.py train -c configs/veri776_b64_parsing.yml data.pkl_path <PKL_PATH>
+CUDA_VISIBLE_DEVICES=0 python main.py train -c configs/veri776_b64_parsing.yml 
 ```
 
 ## Evaluating the ReID model
