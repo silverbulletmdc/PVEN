@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # PVEN
 This is the official code of article "Parsing-based viewaware embedding network for vehicle ReID"[[arxiv]](https://arxiv.org/abs/2004.05021), which has been accpeted by CVPR20 as a poster article.
 
@@ -112,7 +111,3 @@ If you found our method helpful in your research, please cite our work in your p
   pages={7103--7112},
   year={2020}
 }
-```
-=======
-To be published.
->>>>>>> 70f73d214291bfb74724fb831893a2529b7a07e3
