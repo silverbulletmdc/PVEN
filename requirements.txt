@@ -1,0 +1,13 @@
+numpy
+albumentations
+scipy
+logzero
+yacs
+pandas
+torch >= 1.3.0
+torchvision >= 0.4.0
+segmentation_models_pytorch
+opencv-python
+tensorboardX
+opencv-python
+asranger

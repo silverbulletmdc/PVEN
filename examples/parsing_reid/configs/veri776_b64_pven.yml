@@ -1,0 +1,19 @@
+data:
+  pkl_path: '../preprocess_data/veri776.pkl'
+  train_size: (256, 256)
+  valid_size: (256, 256)
+  train_num_workers: 16
+  test_num_workers: 4
+  batch_size: 64
+  with_mask: True
+
+loss:
+  losses: ["id", "triplet", "center", "local-triplet"]
+
+test:
+  remove_junk: True
+  lambda_: 0.5
+
+device: 'cuda'
+output_dir: '../outputs/veri776_b64_pven/'
+
