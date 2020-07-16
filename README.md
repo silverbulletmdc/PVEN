@@ -54,9 +54,9 @@ python preprocess_veri776.py --input-path <VeRi_PATH> --output-path ../outputs/v
 
 
 ## Training the parsing model
-We provide the pre-trained segmentation model on `examples/parsing/best_model_trainval.pth` which you can use to generate parsing masks for different datasets. 
+<!-- We provide the pre-trained segmentation model on `examples/parsing/best_model_trainval.pth` which you can use to generate parsing masks for different datasets. 
 If you want to use the model directly, just skip this section.
-At the same time, you can also train your own parsing models follow the following instructions.
+At the same time, you can also train your own parsing models follow the following instructions. -->
 
 ### Convert polygons to parsing masks
 As is described in the article, we annotate the parsing information of 3165 images from VeRi776. 
@@ -65,7 +65,7 @@ The vertexs information is in `examples/parsing/poly.json`.
 Run following command to convert the polygons to parsing masks
 ```
 cd examples/parsing
-python veri776_poly2mask.py --input-path poly.json --output-path ../outputs/veri776_parsing3165
+python veri776_poly2mask.py --json-path poly.json --output-path ../outputs/veri776_parsing3165
 ```
 The parsing masks will be generated in `veri776_parsing3165` folder.
 
@@ -74,7 +74,7 @@ The parsing masks will be generated in `veri776_parsing3165` folder.
 Run following command to train the parsing model
 ```
 cd examples/parsing
-python train_parsing.py --trainset trainval --masks-path ../outputs/veri776_parsing3165 --image-path <VeRi_PATH>/image_train
+python train_parsing.py --train-set trainval --masks-path ../outputs/veri776_parsing3165 --image-path <VeRi_PATH>/image_train
 ```
 where the `<VeRi_PATH>` is the path of your VeRi776 dataset.
 
