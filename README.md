@@ -91,15 +91,14 @@ Run the following model to train the PVEN ReID model.
 ```shell
 cd examples/parsing_reid
 # For VeRi776
-python main.py train -c configs/veri776_b256_parsing.yml data.pkl_path <PKL_PATH>
+CUDA_VISIBLE_DEVICES=0 python main.py train -c configs/veri776_b64_parsing.yml data.pkl_path <PKL_PATH>
 ```
-**Note**: To achieve the performance mentioned in paper, you should run the algorithm in the machine equipped with 8 GPUs.
 
 ## Evaluating the ReID model
 ```shell
 cd examples/parsing_reid
 # For VeRi776
-python main.py eval -c configs/veri776_b256_parsing.yml
+python main.py eval -c configs/veri776_b64_parsing.yml
 ```
 
 ## Citation
