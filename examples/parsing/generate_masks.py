@@ -53,7 +53,7 @@ if __name__ == "__main__":
         metas = pickle.load(f)
     output_path = Path(args.output_path).absolute()
 
-    for phase in ['train', 'query', 'gallery']:
+    for phase in metas.keys():
         sub_path = output_path / phase
         mkdir_p(str(sub_path))
         dataset = VehicleReIDParsingDataset(metas[phase], augmentation=get_validation_augmentation(),

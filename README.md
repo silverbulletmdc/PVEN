@@ -8,7 +8,7 @@ This is the official code of article "Parsing-based viewaware embedding network 
 ## Install
 Clone this repository. Then excute the following commands
 ```
-cd vehcile_reid.pytorch
+cd PVEN
 pip install -r requirements.txt
 python setup.py install
 ```
