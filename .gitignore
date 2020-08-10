@@ -3,3 +3,5 @@ examples/outputs/*
 *.pth
 __pycache__
 *.egg-info
+runs
+.vscode

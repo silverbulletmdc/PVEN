@@ -21,6 +21,8 @@ def veriwild(input_path, output_path):
     images['gallery_10000']= open(PATH + '/train_test_split/test_10000.txt').read().strip().split('\n')
 
     wild_df = pd.read_csv(f'{PATH}/train_test_split/vehicle_info.txt', sep=';', index_col='id/image')
+
+    # Pandas indexing is very slow, change it to dict
     wild_dict = wild_df.to_dict()
     camid_dict = wild_dict['Camera ID']
 

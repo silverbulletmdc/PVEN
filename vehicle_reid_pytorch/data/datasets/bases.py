@@ -79,32 +79,23 @@ class ReIDMetaDataset:
         self.gallery = eval_set[len(self.query):]
 
     def print_dataset_statistics(self):
-        num_train_pids, num_train_imgs, num_train_cams = get_imagedata_info(
-            self.train)
-        num_query_pids, num_query_imgs, num_query_cams = get_imagedata_info(
-            self.query)
-        num_gallery_pids, num_gallery_imgs, num_gallery_cams = get_imagedata_info(
-            self.gallery)
+        num_train_pids, num_train_imgs, num_train_cams = get_imagedata_info(self.train)
+        num_query_pids, num_query_imgs, num_query_cams = get_imagedata_info(self.query)
+        num_gallery_pids, num_gallery_imgs, num_gallery_cams = get_imagedata_info(self.gallery)
 
         print("Dataset statistics:")
         print("  ----------------------------------------")
         print("  subset   | # ids | # images | # cameras")
         print("  ----------------------------------------")
-        print("  train    | {:5d} | {:8d} | {:9d}".format(
-            num_train_pids, num_train_imgs, num_train_cams))
-        print("  query    | {:5d} | {:8d} | {:9d}".format(
-            num_query_pids, num_query_imgs, num_query_cams))
-        print("  gallery  | {:5d} | {:8d} | {:9d}".format(
-            num_gallery_pids, num_gallery_imgs, num_gallery_cams))
+        print("  train    | {:5d} | {:8d} | {:9d}".format(num_train_pids, num_train_imgs, num_train_cams))
+        print("  query    | {:5d} | {:8d} | {:9d}".format(num_query_pids, num_query_imgs, num_query_cams))
+        print("  gallery  | {:5d} | {:8d} | {:9d}".format(num_gallery_pids, num_gallery_imgs, num_gallery_cams))
         print("  ----------------------------------------")
 
     def _calc_meta_info(self):
-        self.num_train_ids, self.num_train_imgs, self.num_train_cams = get_imagedata_info(
-            self.train)
-        self.num_query_ids, self.num_query_imgs, self.num_query_cams = get_imagedata_info(
-            self.query)
-        self.num_gallery_ids, self.num_gallery_imgs, self.num_gallery_cams = get_imagedata_info(
-            self.gallery)
+        self.num_train_ids, self.num_train_imgs, self.num_train_cams = get_imagedata_info(self.train)
+        self.num_query_ids, self.num_query_imgs, self.num_query_cams = get_imagedata_info(self.query)
+        self.num_gallery_ids, self.num_gallery_imgs, self.num_gallery_cams = get_imagedata_info(self.gallery)
 
 
 class ReIDDataset(Dataset):

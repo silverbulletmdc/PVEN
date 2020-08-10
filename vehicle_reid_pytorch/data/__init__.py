@@ -2,12 +2,12 @@ from . import datasets
 from . import demo_transforms as demo_trans
 
 
-def make_basic_dataset(pkl_path, train_size, val_size, pad, re_prob=0.5, with_mask=False, for_vis=False):
+def make_basic_dataset(pkl_path, train_size, val_size, pad, *, test_ext='', re_prob=0.5, with_mask=False, for_vis=False):
     """
     构建基础数据集。
     """
 
-    meta_dataset = datasets.CommonReIDDataset(pkl_path=pkl_path)
+    meta_dataset = datasets.CommonReIDDataset(pkl_path=pkl_path, test_ext=test_ext)
     train_transform = demo_trans.get_training_albumentations(train_size, pad, re_prob)
     val_transform = demo_trans.get_validation_augmentations(val_size)
     if for_vis:

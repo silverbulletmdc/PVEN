@@ -11,3 +11,4 @@ opencv-python
 tensorboardX
 opencv-python
 asranger
+resnest

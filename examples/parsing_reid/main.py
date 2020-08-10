@@ -46,6 +46,7 @@ def make_config():
     cfg.data.pad = 10
     cfg.data.re_prob = 0.5
     cfg.data.with_mask = True
+    cfg.data.test_ext = ''
 
     cfg.data.sampler = 'RandomIdentitySampler'
     cfg.data.batch_size = 16
@@ -56,7 +57,8 @@ def make_config():
 
     cfg.model = CfgNode()
     cfg.model.name = "resnet50"
-    cfg.model.pretrain_path = ""  # If it is set to empty, we will download it from torchvision official website.
+    # If it is set to empty, we will download it from torchvision official website.
+    cfg.model.pretrain_path = ""
     cfg.model.last_stride = 1
     cfg.model.neck = 'bnneck'
     cfg.model.neck_feat = 'after'
@@ -145,12 +147,12 @@ def train(config_files, cmd_config):
                                                                     cfg.data.train_size,
                                                                     cfg.data.valid_size,
                                                                     cfg.data.pad,
-                                                                    cfg.data.re_prob,
+                                                                    test_ext=cfg.data.test_ext,
+                                                                    re_prob=cfg.data.re_prob,
                                                                     with_mask=cfg.data.with_mask,
                                                                     )
     num_class = meta_dataset.num_train_ids
-    sampler = getattr(samplers, cfg.data.sampler)(train_dataset.meta_dataset, cfg.data.batch_size,
-                                                  cfg.data.num_instances)
+    sampler = getattr(samplers, cfg.data.sampler)(train_dataset.meta_dataset, cfg.data.batch_size, cfg.data.num_instances)
     train_loader = DataLoader(train_dataset, sampler=sampler, batch_size=cfg.data.batch_size,
                               num_workers=cfg.data.train_num_workers, pin_memory=True)
     valid_loader = DataLoader(valid_dataset, batch_size=cfg.data.batch_size, num_workers=cfg.data.test_num_workers,
@@ -305,7 +307,7 @@ def train(config_files, cmd_config):
 
             if iter % cfg.logging.period == 0:
                 logger.info(
-                    f"Epoch[{epoch}] Iteration[{iter}/{len(train_loader)}] "
+                    f"Epoch[{epoch:3d}] Iteration[{iter:4d}/{len(train_loader):4d}] "
                     f"Loss: {running_loss:.3f}, Acc: {running_acc:.3f}, Base Lr: {scheduler.get_lr()[0]:.2e}")
                 if cfg.debug:
                     break
@@ -370,7 +372,8 @@ def eval(config_files, cmd_config):
           cfg.test.max_rank, output_dir=cfg.output_dir, rerank=cfg.test.rerank)
 
 
-def eval_(model, device, valid_loader, query_length, feat_norm=True, remove_junk=True, max_rank=50, output_dir='', rerank=False, lambda_=0.5):
+def eval_(model, device, valid_loader, query_length, feat_norm=True, remove_junk=True, max_rank=50, output_dir='', 
+          rerank=False, lambda_=0.5):
     """实际测试函数
 
     Arguments:

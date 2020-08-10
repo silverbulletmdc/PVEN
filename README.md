@@ -1,28 +1,28 @@
 # PVEN
-This is the official code of article "Parsing-based viewaware embedding network for vehicle ReID"[[arxiv]](https://arxiv.org/abs/2004.05021), which has been accpeted by CVPR20 as a poster article.
+This is the official implementation of article "Parsing-based viewaware embedding network for vehicle ReID"[[arxiv]](https://arxiv.org/abs/2004.05021), which has been accpeted by **CVPR20** as a poster article.
 
 ## Requirements
 1. python 3.6+
 2. torch 1.3.1+
 
 ## Install
-Clone this repository. Then excute the following commands
 ```
+git clone https://github.com/silverbulletmdc/PVEN
 cd PVEN
 pip install -r requirements.txt
 python setup.py install
 ```
 
-If you want to develop this project, use the following commands instead
+If you want to modify the code of this project, use the following commands instead
 ```
-cd vehicle_reid.pytorch
+cd PVEN
 pip install -r requirements.txt
 python setup.py develop
 ```
 
 ## Preparing dataset
-Before the pipeline, you should preparing your vehicle ReID dataset first.
-For each dataset, we need to generate a description pickle file for it, which is a pickled dict with following structure:
+Before the pipeline, you should prepare your vehicle ReID dataset first.
+For each dataset, you need to generate a description pickle file for it, which is a pickled dict with following structure:
 ```json
 {
     "train":[
@@ -43,12 +43,15 @@ For each dataset, we need to generate a description pickle file for it, which is
     ]
 }
 ```
-For different dataset, we provide the generate scripts to help you generate the pickle file.
+
+For different dataset, we have already provided the generating scripts to help you generate the pickle file.
 ```shell
 cd examples/preprocess_data
 # For VeRi776
 python preprocess_veri776.py --input-path <VeRi_PATH> --output-path ../outputs/veri776.pkl
-# For VehicleID and VeRiWild
+# For VERIWild
+python preprocess_veriwild.py --input-path <VeRi_PATH> --output-path ../outputs/veri776.pkl
+# For VehicleID 
 # Will be published soon
 ```
 
@@ -59,15 +62,15 @@ If you want to use the model directly, just skip this section.
 At the same time, you can also train your own parsing models follow the following instructions. -->
 
 ### Convert polygons to parsing masks
-As is described in the article, we annotate the parsing information of 3165 images from VeRi776. 
+As is described in the article, we annotated the parsing information of 3165 images from VeRi776. 
 We just annotate the vertexs of the polygons as the vehicles are composed by several polygons.
-The vertexs information is in `examples/parsing/poly.json`.
+The details of polygons are in `examples/parsing/poly.json`.
 Run following command to convert the polygons to parsing masks
 ```
 cd examples/parsing
 python veri776_poly2mask.py --json-path poly.json --output-path ../outputs/veri776_parsing3165
 ```
-The parsing masks will be generated in `veri776_parsing3165` folder.
+The parsing masks will be generated in `../outputs/veri776_parsing3165` folder.
 
 ### Train parsing model
 
@@ -86,15 +89,15 @@ python generate_masks.py --model-path best_model_trainval.pth --reid-pkl-path ..
 ```
 where the `<PKL_PATH>` is the generated pickle file above. 
 
-## Train PVEN ReID model
-Run the following model to train the PVEN ReID model.
+## Train PVEN
+Run the following model to train PVEN.
 ```shell
 cd examples/parsing_reid
 # For VeRi776
 CUDA_VISIBLE_DEVICES=0 python main.py train -c configs/veri776_b64_parsing.yml 
 ```
 
-## Evaluating the ReID model
+## Evaluate PVEN
 ```shell
 cd examples/parsing_reid
 # For VeRi776
@@ -111,3 +114,4 @@ If you found our method helpful in your research, please cite our work in your p
   pages={7103--7112},
   year={2020}
 }
+```
