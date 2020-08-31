@@ -95,6 +95,8 @@ Run the following model to train PVEN.
 cd examples/parsing_reid
 # For VeRi776
 CUDA_VISIBLE_DEVICES=0 python main.py train -c configs/veri776_b64_parsing.yml 
+# For VERIWild, use 8 GPUs to train
+python main.py train -c configs/veriwild_b256_224_pven.yml 
 ```
 
 ## Evaluate PVEN
@@ -102,6 +104,14 @@ CUDA_VISIBLE_DEVICES=0 python main.py train -c configs/veri776_b64_parsing.yml
 cd examples/parsing_reid
 # For VeRi776
 python main.py eval -c configs/veri776_b64_parsing.yml
+
+# For VERIWild
+## small
+python main.py eval -c configs/veriwild_b256_224_pven.yml
+## medium
+python main.py eval -c configs/veriwild_b256_224_pven.yml test.ext _5000
+## Large
+python main.py eval -c configs/veriwild_b256_224_pven.yml test.ext _10000
 ```
 
 ## Citation

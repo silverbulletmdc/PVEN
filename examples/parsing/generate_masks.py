@@ -20,6 +20,7 @@ ENCODER = 'se_resnext50_32x4d'
 ENCODER_WEIGHTS = 'imagenet'
 preprocessing_fn = smp.encoders.get_preprocessing_fn(ENCODER, ENCODER_WEIGHTS)
 
+IMG2MASK = {}
 
 def predict(model, test_dataset, test_dataset_vis, output_path):
     mkdir_p(output_path)
@@ -27,16 +28,23 @@ def predict(model, test_dataset, test_dataset_vis, output_path):
         image = test_dataset[i]
         image_vis, extra = test_dataset_vis[i]
 
+        # 重复图片直接用之前计算好的即可
+        image_path = Path(extra["image_path"])
+        if str(image_path) in IMG2MASK:
+            extra["mask_path"] = str(IMG2MASK[image_path])
+            continue
+        mask_path = output_path / f"{image_path.name.split('.')[0]}.png"
+
         x_tensor = torch.from_numpy(image).to("cuda").unsqueeze(0)
         with torch.no_grad():
             pr_mask = model.predict(x_tensor)
         pr_map = pr_mask.squeeze().cpu().numpy().round()
-        pr_map = np.argmax(pr_map, axis=0)[
-            :image_vis.shape[0], :image_vis.shape[1]]
-        image_path = Path(extra["image_path"])
-        mask_path = output_path / f"{image_path.name.split('.')[0]}.png"
+        pr_map = np.argmax(pr_map, axis=0)[:image_vis.shape[0], :image_vis.shape[1]]
         cv2.imwrite(str(mask_path), pr_map.astype(np.uint8))
         extra["mask_path"] = str(mask_path)
+
+        IMG2MASK[str(image_path)] = str(mask_path)
+
 
 
 if __name__ == "__main__":

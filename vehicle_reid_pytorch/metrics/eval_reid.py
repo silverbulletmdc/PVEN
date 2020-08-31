@@ -5,6 +5,7 @@
 """
 
 import numpy as np
+from tqdm import tqdm
 
 
 def eval_func(distmat, q_pids, g_pids, q_camids, g_camids, max_rank=50, remove_junk=True):
@@ -20,24 +21,20 @@ def eval_func(distmat, q_pids, g_pids, q_camids, g_camids, max_rank=50, remove_j
     :param bool remove_junk:
     :return:
     """
+    # compute cmc curve for each query
     num_q, num_g = distmat.shape
     if num_g < max_rank:
         max_rank = num_g
         print("Note: number of gallery samples is quite small, got {}".format(num_g))
-    indices = np.argsort(distmat, axis=1)
-    matches = (g_pids[indices] == q_pids[:, np.newaxis])
-    matches.astype(np.int32)
-
-    # compute cmc curve for each query
     all_cmc = []
     all_AP = []
     num_valid_q = 0.  # number of valid query
-    for q_idx in range(num_q):
+    for q_idx in tqdm(range(num_q), desc='Calc cmc and mAP'):
         # get query pid and camid
         q_pid = q_pids[q_idx]
 
         # remove gallery samples that have the same pid and camid with query
-        order = indices[q_idx]
+        order = np.argsort(distmat[q_idx])
         if remove_junk:
             q_camid = q_camids[q_idx]
             remove = (g_pids[order] == q_pid) & (g_camids[order] == q_camid)
@@ -47,7 +44,8 @@ def eval_func(distmat, q_pids, g_pids, q_camids, g_camids, max_rank=50, remove_j
 
         # compute cmc curve
         # binary vector, positions with value 1 are correct matches
-        orig_cmc = matches[q_idx][keep]
+    #     orig_cmc = matches[q_idx][keep]
+        orig_cmc = (g_pids[order] == q_pid).astype(np.int32)[keep]
         if not np.any(orig_cmc):
             # this condition is true when query identity does not appear in gallery
             continue

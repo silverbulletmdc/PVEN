@@ -11,7 +11,7 @@ from functools import reduce
 from vehicle_reid_pytorch.metrics.rerank import re_ranking
 
 
-def clck_dist(feat1, feat2, vis_score1, vis_score2):
+def clck_dist(feat1, feat2, vis_score1, vis_score2, split=0):
     """
     计算vpm论文中的clck距离
 
@@ -23,20 +23,16 @@ def clck_dist(feat1, feat2, vis_score1, vis_score2):
     """
 
     B, C, N = feat1.shape
-    dist_mats = []
-    ckcls = []
-
+    dist_mat = 0
+    ckcl = 0
     for i in range(N):
         parse_feat1 = feat1[:, :, i]
         parse_feat2 = feat2[:, :, i]
-        dist_mat = euclidean_dist(parse_feat1, parse_feat2)
-        ckcl = torch.mm(vis_score1[:, i].view(-1, 1), vis_score2[:, i].view(1, -1))  # [N, N]
-        dist_mats.append(dist_mat)
-        ckcls.append(ckcl)
+        ckcl_ = torch.mm(vis_score1[:, i].view(-1, 1), vis_score2[:, i].view(1, -1))  # [N, N]
+        ckcl += ckcl_
+        dist_mat += euclidean_dist(parse_feat1, parse_feat2, split=split) * ckcl_
 
-    dist_mat = reduce(torch.add, [ckcls[i] * dist_mats[i] for i in range(N)]) / reduce(torch.add, ckcls)
-
-    return dist_mat
+    return dist_mat / ckcl
 
 
 class Clck_R1_mAP:
@@ -80,16 +76,20 @@ class Clck_R1_mAP:
         self.camids.extend(np.asarray(camid))
         self.paths += paths
 
-    def compute(self):
+    def compute(self, split=0):
+        """
+        split: When the CUDA memory is not sufficient, we can split the dataset into different parts
+               for the computing of distance.
+        """
         global_feats = torch.cat(self.global_feats, dim=0)
         local_feats = torch.cat(self.local_feats, dim=0)
-        vis_scores = torch.cat(self.vis_scores)
+        vis_scores = torch.cat(self.vis_scores).cpu()
         if self.feat_norm:
             print("The test feature is normalized")
             global_feats = F.normalize(global_feats, dim=1, p=2)
             local_feats = F.normalize(local_feats, dim=1, p=2)
-
         # 全局距离
+        print('Calculate distance matrixs...')
         # query
         qf = global_feats[:self.num_query]
         q_pids = np.asarray(self.pids[:self.num_query])
@@ -98,40 +98,78 @@ class Clck_R1_mAP:
         gf = global_feats[self.num_query:]
         g_pids = np.asarray(self.pids[self.num_query:])
         g_camids = np.asarray(self.camids[self.num_query:])
+
+        qf = qf.cuda()
         m, n = qf.shape[0], gf.shape[0]
+
+
+        if self.output_path:
+            print('Saving results...')
+            outputs = {
+                "global_feats": global_feats,
+                "vis_scores": vis_scores,
+                "local_feats": local_feats,
+                "pids": self.pids,
+                "camids": self.camids,
+                "paths": self.paths,
+                "num_query": self.num_query
+            }
+            torch.save(outputs, os.path.join(self.output_path, 'test_output.pkl'), pickle_protocol=4)
 
         if self.rerank:
             distmat = re_ranking(qf, gf, k1=20, k2=6, lambda_value=0.3)
 
         else:
-            distmat = torch.pow(qf, 2).sum(dim=1, keepdim=True).expand(m, n) + \
-                      torch.pow(gf, 2).sum(dim=1, keepdim=True).expand(n, m).t()
-            distmat.addmm_(1, -2, qf, gf.t())
-            distmat = distmat.cpu().numpy()
+            # qf: M, F
+            # gf: N, F
+            if split == 0:
+                distmat = torch.pow(qf, 2).sum(dim=1, keepdim=True).expand(m, n) + \
+                        torch.pow(gf.cuda(), 2).sum(dim=1, keepdim=True).expand(n, m).t()
+                distmat.addmm_(1, -2, qf, gf.t())
+            else:
+                distmat = gf.new(m, n)
+                start = 0
+                while start < n:
+                    end = start + split if (start + split) < n else n
+                    num = end - start
+
+                    sub_distmat = torch.pow(qf, 2).sum(dim=1, keepdim=True).expand(m, num) + \
+                            torch.pow(gf[start:end].cuda(), 2).sum(dim=1, keepdim=True).expand(num, m).t()
+                    # sub_distmat.addmm_(1, -2, qf, gf[start:end].t())
+                    sub_distmat.addmm_(qf, gf[start:end].cuda().t(), beta=1, alpha=-2)
+                    distmat[:, start:end] = sub_distmat.cpu()
+
+                    start += num
+
+            distmat = distmat.numpy()
 
         # 局部距离
+        print('Calculate local distances...')
         local_distmat = clck_dist(local_feats[:self.num_query], local_feats[self.num_query:],
-                                  vis_scores[:self.num_query], vis_scores[self.num_query:])
+                                  vis_scores[:self.num_query], vis_scores[self.num_query:], split=split)
+
+        local_feats = local_feats.cpu()
         local_distmat = local_distmat.cpu().numpy()
 
         # 保存结果
-        query_paths = self.paths[:self.num_query]
-        gallery_paths = self.paths[self.num_query:]
-        if self.output_path != '':
-            with open(os.path.join(self.output_path, 'test_output.pkl'), 'wb') as f:
-                torch.save({
-                    'gallery_paths': gallery_paths,
-                    'query_paths': query_paths,
-                    'gallery_ids': g_pids,
-                    'query_ids': q_pids,
-                    'query_features': qf,
-                    'gallery_features': gf,
-                    'query_cams': q_camids,
-                    'gallery_cams': g_camids,
-                    'distmat': distmat,
-                    'localdistmat': local_distmat
-                }, f)
+        # query_paths = self.paths[:self.num_query]
+        # gallery_paths = self.paths[self.num_query:]
+        # if self.output_path != '':
+        #     with open(os.path.join(self.output_path, 'test_output.pkl'), 'wb') as f:
+        #         torch.save({
+        #             'gallery_paths': gallery_paths,
+        #             'query_paths': query_paths,
+        #             'gallery_ids': g_pids,
+        #             'query_ids': q_pids,
+        #             # 'query_features': qf,
+        #             # 'gallery_features': gf,
+        #             'query_cams': q_camids,
+        #             'gallery_cams': g_camids,
+        #             'distmat': distmat,
+        #             'localdistmat': local_distmat
+        #         }, f)
 
+        print('Eval...')
         cmc, mAP = eval_func(distmat + self.lambda_ * local_distmat, q_pids, g_pids, q_camids, g_camids,
                              remove_junk=self.remove_junk)
 

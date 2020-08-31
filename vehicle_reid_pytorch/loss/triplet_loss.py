@@ -13,21 +13,41 @@ def normalize(x, axis=-1):
     return x
 
 
-def euclidean_dist(x, y):
+def euclidean_dist(x, y, split=0):
     """
     Args:
       x: pytorch Variable, with shape [m, d]
       y: pytorch Variable, with shape [n, d]
+      split: When the CUDA memory is not sufficient, we can split the dataset into different parts
+             for the computing of distance.
     Returns:
       dist: pytorch Variable, with shape [m, n]
     """
     m, n = x.size(0), y.size(0)
-    xx = torch.pow(x, 2).sum(1, keepdim=True).expand(m, n)
-    yy = torch.pow(y, 2).sum(1, keepdim=True).expand(n, m).t()
-    dist = xx + yy
-    dist.addmm_(x, y.t(), beta=1, alpha=-2)
-    dist = dist.clamp(min=1e-12).sqrt()  # for numerical stability
-    return dist
+    if split == 0:
+        xx = torch.pow(x, 2).sum(1, keepdim=True).expand(m, n)
+        yy = torch.pow(y, 2).sum(1, keepdim=True).expand(n, m).t()
+        distmat = xx + yy
+        distmat.addmm_(x, y.t(), beta=1, alpha=-2)
+
+    else:
+        distmat = x.new(m, n)
+        start = 0
+        x = x.cuda()
+
+        while start < n:
+            end = start + split if (start + split) < n else n
+            num = end - start
+
+            sub_distmat = torch.pow(x, 2).sum(dim=1, keepdim=True).expand(m, num) + \
+                    torch.pow(y[start:end].cuda(), 2).sum(dim=1, keepdim=True).expand(num, m).t()
+            # sub_distmat.addmm_(1, -2, x, y[start:end].t())
+            sub_distmat.addmm_(x, y[start:end].cuda().t(), beta=1, alpha=-2)
+            distmat[:, start:end] = sub_distmat.cpu()
+            start += num
+
+    distmat = distmat.clamp(min=1e-12).sqrt()  # for numerical stability
+    return distmat
 
 
 def hard_example_mining(dist_mat, labels, mask=None, return_inds=False):

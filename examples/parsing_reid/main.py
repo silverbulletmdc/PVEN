@@ -1,4 +1,5 @@
 import time
+import os
 import click
 from tqdm import tqdm
 import logzero
@@ -95,10 +96,15 @@ def make_config():
     cfg.test.feat_norm = True
     cfg.test.remove_junk = True
     cfg.test.period = 10
-    cfg.test.epoch = 0  # 如果为0测试最新的，否则测试对应epoch的
+    cfg.test.device = "cuda"
+    cfg.test.model_path = "../outputs/veri776.pth"
     cfg.test.max_rank = 50
     cfg.test.rerank = False
     cfg.test.lambda_ = 0.0
+    # split: When the CUDA memory is not sufficient, 
+    # we can split the dataset into different parts
+    # for the computing of distance.
+    cfg.test.split = 0  
 
     cfg.logging = CfgNode()
     cfg.logging.level = "info"
@@ -110,7 +116,6 @@ def make_config():
 def build_model(cfg, num_classes):
     # if cfg.MODEL.NAME == 'resnet50':
     #     model = Baseline(num_classes, cfg.MODEL.LAST_STRIDE, cfg.MODEL.PRETRAIN_PATH, cfg.MODEL.NECK, cfg.TEST.NECK_FEAT)
-    print(num_classes)
     model = ParsingReidModel(num_classes, cfg.model.last_stride, cfg.model.pretrain_path, cfg.model.neck,
                              cfg.model.neck_feat, cfg.model.name, cfg.model.pretrain_choice)
     return model
@@ -184,14 +189,11 @@ def train(config_files, cmd_config):
     if 'triplet' in cfg.loss.losses:
         triplet_loss = vr_loss.TripletLoss(margin=cfg.loss.triplet_margin)
     if 'id' in cfg.loss.losses:
-        id_loss = vr_loss.CrossEntropyLabelSmooth(
-            num_class, cfg.loss.id_epsilon)
+        id_loss = vr_loss.CrossEntropyLabelSmooth(num_class, cfg.loss.id_epsilon)
         # id_loss = vr_losses.CrossEntropyLabelSmooth(num_class, cfg.loss.id_epsilon, keep_dim=False)
     if 'center' in cfg.loss.losses:
-        center_loss = vr_loss.CenterLoss(
-            num_class, feat_dim=model.in_planes).to(cfg.device)
-        optimizer_center = torch.optim.SGD(
-            center_loss.parameters(), cfg.loss.center_lr)
+        center_loss = vr_loss.CenterLoss(num_class, feat_dim=model.in_planes).to(cfg.device)
+        optimizer_center = torch.optim.SGD(center_loss.parameters(), cfg.loss.center_lr)
     if 'tuplet' in cfg.loss.losses:
         tuplet_loss = vr_loss.TupletLoss(cfg.data.num_instances, cfg.data.batch_size // cfg.data.num_instances,
                                          cfg.loss.tuplet_s, cfg.loss.tuplet_beta)
@@ -203,10 +205,8 @@ def train(config_files, cmd_config):
             start_epoch = load_checkpoint(cfg.output_dir, cfg.device, model=model, optimizer=optimizer,
                                           optimizer_center=optimizer_center, center_loss=center_loss)
         else:
-            start_epoch = load_checkpoint(
-                cfg.output_dir, cfg.device, model=model, optimizer=optimizer)
-        logger.info(
-            f"Loaded checkpoint successfully! Start epoch is {start_epoch}")
+            start_epoch = load_checkpoint(cfg.output_dir, cfg.device, model=model, optimizer=optimizer)
+        logger.info(f"Loaded checkpoint successfully! Start epoch is {start_epoch}")
 
     if torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model)
@@ -259,31 +259,26 @@ def train(config_files, cmd_config):
                                    g_xent_loss.item(), global_steps)
 
             if "triplet" in cfg.loss.losses:
-                t_loss, _, _ = triplet_loss(
-                    global_feat, batch["id"], normalize_feature=False)
+                t_loss, _, _ = triplet_loss(global_feat, batch["id"], normalize_feature=False)
                 logger.debug(f'Triplet Loss: {t_loss.item()}')
                 loss += t_loss
-                writter.add_scalar("global_loss/triplet_loss",
-                                   t_loss.item(), global_steps)
+                writter.add_scalar("global_loss/triplet_loss", t_loss.item(), global_steps)
 
             if "center" in cfg.loss.losses:
                 g_center_loss = center_loss(global_feat, batch["id"])
                 logger.debug(g_center_loss.item())
                 loss += cfg.loss.center_weight * g_center_loss
-                writter.add_scalar("global_loss/center_loss",
-                                   g_center_loss.item(), global_steps)
+                writter.add_scalar("global_loss/center_loss", g_center_loss.item(), global_steps)
 
             if "tuplet" in cfg.loss.losses:
                 g_tuplet_loss = tuplet_loss(global_feat)
                 loss += g_tuplet_loss
-                writter.add_scalar("global_loss/tuplet_loss",
-                                   g_tuplet_loss.item(), global_steps)
+                writter.add_scalar("global_loss/tuplet_loss", g_tuplet_loss.item(), global_steps)
 
             if "local-triplet" in cfg.loss.losses:
                 l_triplet_loss, _, _ = pt_loss(
                     local_feat, vis_score, batch["id"], True)
-                writter.add_scalar("local_loss/triplet_loss",
-                                   l_triplet_loss.item(), global_steps)
+                writter.add_scalar("local_loss/triplet_loss", l_triplet_loss.item(), global_steps)
                 loss += l_triplet_loss
 
             loss.backward()
@@ -322,8 +317,8 @@ def train(config_files, cmd_config):
             f"Speed:{(t_end - t_begin) / len(train_loader.dataset):.1f}[samples/s] ")
         logger.info('-' * 10)
 
-        # 测试模型
-        if epoch == 1 or epoch % cfg.test.period == 0:
+        # 测试模型, veriwild在训练时测试会导致显存溢出,训练后单独测试。
+        if (epoch == 1 or epoch % cfg.test.period == 0) and cfg.data.name.lower() != 'veriwild':
             query_length = meta_dataset.num_query_imgs
             if query_length != 0:  # Private没有测试集
                 eval_(model,
@@ -353,27 +348,62 @@ def eval(config_files, cmd_config):
     cfg = make_config()
     cfg = merge_configs(cfg, config_files, cmd_config)
 
-    model = build_model(cfg, 1).to(cfg.device)
-    start_epoch = load_checkpoint(cfg.output_dir, device=cfg.device, epoch=cfg.test.epoch, exclude="classifier",
-                                  model=model)
+    os.makedirs(cfg.output_dir, exist_ok=True)
 
-    logger.info(f"Load model saved in epoch {start_epoch - 1}")
+    model = build_model(cfg, 1).to(cfg.device)
+    # start_epoch = load_checkpoint(cfg.output_dir, device=cfg.device, epoch=cfg.test.epoch, exclude="classifier", model=model)
+    state_dict = torch.load(cfg.test.model_path, map_location=cfg.device)
+
+    # Remove the classifier
+    remove_keys = []
+    for key, value in state_dict.items():
+        if 'classifier' in key:
+            remove_keys.append(key)
+    for key in remove_keys:
+        del state_dict[key]
+
+    model.load_state_dict(state_dict, strict=False)
+
+    if torch.cuda.device_count() > 1:
+        model = torch.nn.DataParallel(model)
+
+    logger.info(f"Load model {cfg.test.model_path}")
     train_dataset, valid_dataset, meta_dataset = make_basic_dataset(cfg.data.pkl_path,
                                                                     cfg.data.train_size,
                                                                     cfg.data.valid_size,
                                                                     cfg.data.pad,
-                                                                    cfg.data.re_prob,
+                                                                    test_ext=cfg.data.test_ext,
+                                                                    re_prob=cfg.data.re_prob,
                                                                     with_mask=cfg.data.with_mask,
                                                                     )
-    valid_loader = DataLoader(valid_dataset, batch_size=cfg.data.batch_size, num_workers=cfg.data.test_num_workers,
-                              pin_memory=True, shuffle=False)
+    valid_loader = DataLoader(valid_dataset, 
+                              batch_size=cfg.data.batch_size, 
+                              num_workers=cfg.data.test_num_workers, 
+                              pin_memory=True, 
+                              shuffle=False)
+
     query_length = meta_dataset.num_query_imgs
-    eval_(model, cfg.device, valid_loader, query_length, cfg.test.remove_junk,
-          cfg.test.max_rank, output_dir=cfg.output_dir, rerank=cfg.test.rerank)
+    eval_(model, cfg.test.device, valid_loader, query_length, 
+          feat_norm=cfg.test.feat_norm,
+          remove_junk=cfg.test.remove_junk, 
+          max_rank=cfg.test.max_rank, 
+          output_dir=cfg.output_dir, 
+          lambda_=cfg.test.lambda_,
+          rerank=cfg.test.rerank, 
+          split=cfg.test.split)
 
 
-def eval_(model, device, valid_loader, query_length, feat_norm=True, remove_junk=True, max_rank=50, output_dir='', 
-          rerank=False, lambda_=0.5):
+def eval_(model, 
+          device, 
+          valid_loader, 
+          query_length, 
+          feat_norm=True, 
+          remove_junk=True, 
+          max_rank=50, 
+          output_dir='', 
+          rerank=False, 
+          lambda_=0.5,
+          split=0):
     """实际测试函数
 
     Arguments:
@@ -390,22 +420,20 @@ def eval_(model, device, valid_loader, query_length, feat_norm=True, remove_junk
     Returns:
         [type] -- [description]
     """
-    metric = Clck_R1_mAP(query_length, max_rank=max_rank, rerank=rerank,
-                         remove_junk=remove_junk, feat_norm=feat_norm, output_path=output_dir, lambda_=lambda_)
+    metric = Clck_R1_mAP(query_length, max_rank=max_rank, rerank=rerank, remove_junk=remove_junk, feat_norm=feat_norm, output_path=output_dir, lambda_=lambda_)
     model.eval()
     with torch.no_grad():
         for batch in tqdm(valid_loader):
             for name, item in batch.items():
                 if isinstance(item, torch.Tensor):
-                    batch[name] = item.to(device)
+                    batch[name] = item.to("cuda")
             output = model(**batch)
-            global_feat = output["global_feat"]
-            local_feat = output["local_feat"]
-            vis_score = output["vis_score"]
-            metric.update(
-                (global_feat, local_feat, vis_score, batch["id"].cpu(), batch["cam"].cpu(), batch["image_path"]))
+            global_feat = output["global_feat"].to(device)
+            local_feat = output["local_feat"].to(device)
+            vis_score = output["vis_score"].to(device)
+            metric.update((global_feat.detach().cpu(), local_feat.detach().cpu(), vis_score, batch["id"].cpu(), batch["cam"].cpu(), batch["image_path"]))
 
-    cmc, mAP = metric.compute()
+    cmc, mAP = metric.compute(split=split)
 
     # distmat = metric.distmat
     # gallery_idxs = np.argsort(distmat, axis=-1)
@@ -424,7 +452,7 @@ def eval_(model, device, valid_loader, query_length, feat_norm=True, remove_junk
     metric.reset()
     logger.info(f"mAP: {mAP:.1%}")
     for r in [1, 5, 10]:
-        logger.info(f"CMC curve, Rank-{r:<3}:{cmc[r - 1]:.1%}")
+        logger.info(f"CMC curve, Rank-{r:<3}:{cmc[r - 1]:.2%}")
     return cmc, mAP
 
 
