@@ -317,8 +317,8 @@ def train(config_files, cmd_config):
             f"Speed:{(t_end - t_begin) / len(train_loader.dataset):.1f}[samples/s] ")
         logger.info('-' * 10)
 
-        # 测试模型, veriwild在训练时测试会导致显存溢出,训练后单独测试。
-        if (epoch == 1 or epoch % cfg.test.period == 0) and cfg.data.name.lower() != 'veriwild':
+        # 测试模型, veriwild在训练时测试会导致显存溢出,训练后单独测试。 vehicleid使用不同的测试策略，也训练后单独测试
+        if (epoch == 1 or epoch % cfg.test.period == 0) and cfg.data.name.lower() != 'veriwild' and cfg.data.name.lower() != 'vehicleid':
             query_length = meta_dataset.num_query_imgs
             if query_length != 0:  # Private没有测试集
                 eval_(model,

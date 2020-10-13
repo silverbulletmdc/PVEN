@@ -48,11 +48,11 @@ For different dataset, we have already provided the generating scripts to help y
 ```shell
 cd examples/preprocess_data
 # For VeRi776
-python preprocess_veri776.py --input-path <VeRi_PATH> --output-path ../outputs/veri776.pkl
+python generate_pkl.py veri776 --input-path <VeRi_PATH> --output-path ../outputs/veri776.pkl
 # For VERIWild
-python preprocess_veriwild.py --input-path <VeRi_PATH> --output-path ../outputs/veri776.pkl
+python generate_pkl.py veriwild --input-path <VeRi_PATH> --output-path ../outputs/veriwild.pkl
 # For VehicleID 
-# Will be published soon
+python generate_pkl.py vehicleid --input-path <VeRi_PATH> --output-path ../outputs/vehicleid.pkl
 ```
 
 
@@ -85,7 +85,7 @@ where the `<VeRi_PATH>` is the path of your VeRi776 dataset.
 Running the following command to generate masks for the whole ReID dataset and write the `mask_path` to the dataset pickle file. 
 ```
 cd examples/parsing
-python generate_masks.py --model-path best_model_trainval.pth --reid-pkl-path ../outputs/veri776.pkl --output-path ../outputs/masks
+python generate_masks.py --model-path best_model_trainval.pth --reid-pkl-path ../outputs/veri776.pkl --output-path ../outputs/veri776_masks
 ```
 where the `<PKL_PATH>` is the generated pickle file above. 
 
@@ -95,6 +95,8 @@ Run the following model to train PVEN.
 cd examples/parsing_reid
 # For VeRi776
 CUDA_VISIBLE_DEVICES=0 python main.py train -c configs/veri776_b64_parsing.yml 
+# For vehicleid, use 8 GPUs to train
+python main.py train -c configs/vehicleid_b256_pven.yml 
 # For VERIWild, use 8 GPUs to train
 python main.py train -c configs/veriwild_b256_224_pven.yml 
 ```

@@ -1,0 +1,22 @@
+data:
+  pkl_path: '../outputs/vehicleid.pkl'
+  train_size: (256, 256)
+  valid_size: (256, 256)
+  train_num_workers: 16 
+  test_num_workers: 0
+  batch_size: 256
+  with_mask: True
+  test_ext: "_800"
+  name: "VehicleID"
+
+loss:
+  losses: ["id", "triplet", "center", "local-triplet"]
+
+test:
+  remove_junk: False
+  lambda_: 0.5
+  period: 1000
+
+device: 'cuda'
+output_dir: '../outputs/vehicleid_b256_pven/'
+

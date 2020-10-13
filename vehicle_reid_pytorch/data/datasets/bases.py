@@ -132,7 +132,17 @@ class ReIDDataset(Dataset):
         meta: dict = self.meta_dataset[item]
         sample = meta.copy()
         # 读入图片
-        sample["image"] = read_rgb_image(meta["image_path"])
+
+        ######## TODO: Remove this before commit
+        idx = sample["image_path"].find('/home/aa')
+        if idx != -1:
+            sample["image_path"] = '/data1/dechao_meng/' + sample["image_path"][idx + 8:] 
+            sample["mask_path"] = '/data1/dechao_meng/' + sample["mask_path"][idx + 8:] 
+        ###################################
+
+
+        sample["image"] = read_rgb_image(sample["image_path"])
+
 
         # 读入mask
         if self.with_mask:

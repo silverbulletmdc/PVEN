@@ -31,7 +31,7 @@ def predict(model, test_dataset, test_dataset_vis, output_path):
         # 重复图片直接用之前计算好的即可
         image_path = Path(extra["image_path"])
         if str(image_path) in IMG2MASK:
-            extra["mask_path"] = str(IMG2MASK[image_path])
+            extra["mask_path"] = str(IMG2MASK[str(image_path)])
             continue
         mask_path = output_path / f"{image_path.name.split('.')[0]}.png"
 
