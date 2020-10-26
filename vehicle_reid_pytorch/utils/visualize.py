@@ -151,3 +151,99 @@ def render_bboxes_to_img(image, bboxes, color=(255, 0, 0), thickness=5):
         cv2.rectangle(im, pt1, pt2, color, thickness)
     return im
 
+
+def generate_html_table(content_table, width='auto', height='auto', output_path=''):
+    """Generate html table
+
+    Args:
+        content_table: 2D table
+        width: image width
+        height: image height
+        output_path: output html path.
+    """
+    html = '<html>'
+    html += '<head>'
+
+    html +="""
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/1.0.0/css/font-awesome.css" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://unpkg.com/bootstrap-table@1.18.0/dist/bootstrap-table.min.css">
+    """
+
+    html += '</head>'
+    html += '<body>'
+    html += """
+        <table
+            class="table"
+            id="table"
+            data-search="true"
+            data-pagination="true"
+            data-show-toggle="true"
+            data-page-list="[10, 25, 50, 100, all]"
+            data-show-refresh="true"
+            data-show-fullscreen="true"
+            data-show-columns="true"
+            data-show-columns-toggle-all="true"
+            data-show-export="true"
+            data-click-to-select="true"
+            data-minimum-count-columns="2"
+            data-show-pagination-switch="true"
+            data-id-field="id"
+            data-show-footer="true"
+        >
+    """
+
+    html += '<thead>'
+    html += '<tr>'
+    heads = content_table[0].keys()
+
+    for i, h in enumerate(heads):
+        html += f'<th data-field="{h}" sortable=true>{h}</th>'
+
+    html += "</tr>"
+    html += "</thead>"
+    html += '</table>'
+
+    html +="""
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+        <script src="https://unpkg.com/bootstrap-table@1.18.0/dist/bootstrap-table.min.js"></script>
+    """
+
+    all_content_dict = []
+    for content_row in content_table:
+        content_dict = {}
+        for i, head in enumerate(heads):
+            content = content_row[head]
+            subhtml = ''
+            if type(content) == dict: # 图片
+                src = content['src']
+                alt = '' if not "alt" in content else content['alt']
+                title = '' if not "title" in content else content['title']
+                item_width = width if not "width" in content else content['width']
+                item_height = height if not "height" in content else content['height']
+                text = '' if not "text" in content else content['text']
+                if text != '':
+                    subhtml += f"<div>{text}</div>"
+                subhtml += f"<img src={src} alt=\"{alt}\" title=\"{title}\" height={item_height} width={item_width}>"
+            else:
+                subhtml = f"{content}"
+
+            content_dict[head] = subhtml
+        all_content_dict.append(content_dict)
+
+    html += """
+    <script>
+    var $table = $('#table')
+    $(function() {
+        var data = %s;     
+        $table.bootstrapTable({data: data, paginationUseIntermediate: true})
+    })
+    </script>
+    """ % str(all_content_dict)
+    html += '</body></html>'
+    if output_path != '':
+        open(output_path, 'w').write(html)
+
+    return html
