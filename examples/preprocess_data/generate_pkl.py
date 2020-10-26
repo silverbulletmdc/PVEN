@@ -3,6 +3,7 @@ import os
 import pickle as pkl
 import click
 import Path
+import re
 
 @click.group()
 def main():
