@@ -168,7 +168,7 @@ class Clck_R1_mAP:
 
                     start += num
 
-            distmat = distmat.numpy()
+            distmat = distmat.detach().cpu().numpy()
 
         # 局部距离
         print('Calculate local distances...')

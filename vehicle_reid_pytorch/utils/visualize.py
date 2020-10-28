@@ -4,6 +4,7 @@ from matplotlib.patches import Rectangle
 import cv2
 import albumentations as albu
 import math
+import os
 
 COLOR_LIST = [
     (0, 0, 0),
@@ -152,7 +153,7 @@ def render_bboxes_to_img(image, bboxes, color=(255, 0, 0), thickness=5):
     return im
 
 
-def generate_html_table(content_table, width='auto', height='auto', output_path=''):
+def generate_html_table(content_table, image_width='auto', image_height='auto', output_path=''):
     """Generate html table
 
     Args:
@@ -166,7 +167,7 @@ def generate_html_table(content_table, width='auto', height='auto', output_path=
 
     html +="""
         <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
-        <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/1.0.0/css/font-awesome.css" crossorigin="anonymous">
+        <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/5.15.1/css/all.min.css" rel="stylesheet">
         <link rel="stylesheet" href="https://unpkg.com/bootstrap-table@1.18.0/dist/bootstrap-table.min.css">
     """
 
@@ -198,7 +199,7 @@ def generate_html_table(content_table, width='auto', height='auto', output_path=
     heads = content_table[0].keys()
 
     for i, h in enumerate(heads):
-        html += f'<th data-field="{h}" sortable=true>{h}</th>'
+        html += f'<th data-field="{h}" data-sortable=true>{h}</th>'
 
     html += "</tr>"
     html += "</thead>"
@@ -211,13 +212,16 @@ def generate_html_table(content_table, width='auto', height='auto', output_path=
         <script src="https://unpkg.com/bootstrap-table@1.18.0/dist/bootstrap-table.min.js"></script>
     """
 
+    width = image_width
+    height = image_height
     all_content_dict = []
     for content_row in content_table:
         content_dict = {}
         for i, head in enumerate(heads):
             content = content_row[head]
             subhtml = ''
-            if type(content) == dict: # 图片
+
+            if type(content) == dict: # 图片，支持更丰富的样式
                 src = content['src']
                 alt = '' if not "alt" in content else content['alt']
                 title = '' if not "title" in content else content['title']
@@ -227,6 +231,17 @@ def generate_html_table(content_table, width='auto', height='auto', output_path=
                 if text != '':
                     subhtml += f"<div>{text}</div>"
                 subhtml += f"<img src={src} alt=\"{alt}\" title=\"{title}\" height={item_height} width={item_width}>"
+
+            # 图片
+            if type(content) == str and os.path.splitext(content)[-1].lower() in ['.jpg', '.png', '.jpeg', '.gif']:
+                src = content
+                subhtml += f"<img src={src} alt=\"{src}\" height={height} width={width}>"
+
+            # 视频
+            elif type(content) == str and os.path.splitext(content)[-1].lower() in ['.mp4', '.webm']:
+                src = content
+                subhtml += f"<video src={src} alt=\"{src}\" height={height} width={width}>"
+
             else:
                 subhtml = f"{content}"
 
