@@ -18,7 +18,7 @@ class ParsingReidModel(Baseline):
         self.local_bn_neck = nn.BatchNorm1d(2048*num_local_branches)
         self.local_classifier = nn.Conv1d(2048, num_classes, 1)
 
-    def forward(self, image, mask, **kwargs):
+    def forward(self, image, mask=None, **kwargs):
         """
 
         :param torch.Tensor x: [B, 3, H, W]
@@ -26,9 +26,15 @@ class ParsingReidModel(Baseline):
         :return:
         """
         # Remove bg
-        mask = mask[:, 1:, :, :]
 
-        B, N, H, W = mask.shape
+        if mask is not None:
+            mask = mask[:, 1:, :, :]
+            B, N, H, W = mask.shape
+        else:
+            B, _, H, W = image.shape
+            N = 4
+            mask = image.new_zeros(B, 4, H, W)
+
         x = self.base(image)
 
         B, C, h, w = x.shape

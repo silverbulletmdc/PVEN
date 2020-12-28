@@ -8,6 +8,7 @@ from pathlib import Path
 from vehicle_reid_pytorch.utils.iotools import read_rgb_image
 from vehicle_reid_pytorch.utils.visualize import visualize_img as visualize_img
 from vehicle_reid_pytorch.utils.math import pad_image_size_to_multiples_of
+from vehicle_reid_pytorch.data.transforms import AlbuRandomErasing
 import matplotlib.pyplot as plt
 import albumentations as albu
 import cv2
@@ -48,6 +49,7 @@ def get_training_albumentations():
             ],
             p=0.9,
         ),
+        # AlbuRandomErasing(0.5)
     ]
     return albu.Compose(train_transform)
 

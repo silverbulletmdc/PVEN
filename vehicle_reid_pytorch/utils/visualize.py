@@ -1,10 +1,24 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Rectangle
+from vehicle_reid_pytorch.metrics.eval_reid import calc_AP
 import cv2
 import albumentations as albu
 import math
 import os
+import time
+
+def time_it(func):
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        print(f'Start {func.__name__}')
+        output = func(*args, **kwargs)
+        end = time.time()
+        print(f'End {func.__name__}. Elapsed {end-start} seconds')
+        return output
+
+    return wrapper
+
 
 COLOR_LIST = [
     (0, 0, 0),
@@ -169,6 +183,9 @@ def generate_html_table(content_table, image_width='auto', image_height='auto', 
         <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
         <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/5.15.1/css/all.min.css" rel="stylesheet">
         <link rel="stylesheet" href="https://unpkg.com/bootstrap-table@1.18.0/dist/bootstrap-table.min.css">
+        <link href="https://unpkg.com/bootstrap-table@1.18.0/dist/extensions/page-jump-to/bootstrap-table-page-jump-to.min.css" rel="stylesheet">
+
+
     """
 
     html += '</head>'
@@ -180,6 +197,7 @@ def generate_html_table(content_table, image_width='auto', image_height='auto', 
             data-search="true"
             data-pagination="true"
             data-show-toggle="true"
+            data-show-jump-to="true"
             data-page-list="[10, 25, 50, 100, all]"
             data-show-refresh="true"
             data-show-fullscreen="true"
@@ -210,6 +228,7 @@ def generate_html_table(content_table, image_width='auto', image_height='auto', 
         <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
         <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
         <script src="https://unpkg.com/bootstrap-table@1.18.0/dist/bootstrap-table.min.js"></script>
+        <script src="https://unpkg.com/bootstrap-table@1.18.0/dist/extensions/page-jump-to/bootstrap-table-page-jump-to.min.js"></script>
     """
 
     width = image_width
@@ -228,12 +247,13 @@ def generate_html_table(content_table, image_width='auto', image_height='auto', 
                 item_width = width if not "width" in content else content['width']
                 item_height = height if not "height" in content else content['height']
                 text = '' if not "text" in content else content['text']
+                style = '' if not "style" in content else content['style']
                 if text != '':
                     subhtml += f"<div>{text}</div>"
-                subhtml += f"<img src={src} alt=\"{alt}\" title=\"{title}\" height={item_height} width={item_width}>"
+                subhtml += f"<img src={src} alt=\"{alt}\" title=\"{title}\" height={item_height} width={item_width} style=\"{style}\">"
 
             # 图片
-            if type(content) == str and os.path.splitext(content)[-1].lower() in ['.jpg', '.png', '.jpeg', '.gif']:
+            elif type(content) == str and os.path.splitext(content)[-1].lower() in ['.jpg', '.png', '.jpeg', '.gif']:
                 src = content
                 subhtml += f"<img src={src} alt=\"{src}\" height={height} width={width}>"
 
@@ -261,4 +281,55 @@ def generate_html_table(content_table, image_width='auto', image_height='auto', 
     if output_path != '':
         open(output_path, 'w').write(html)
 
+    return html
+
+
+@time_it
+def reid_html_table(query, gallery, distmat, output_html_path, all_AP=None, topk=15):
+    """
+    生成ReID的可视化网页。
+
+    Args:
+        query: query元信息list
+        gallery: gallery元信息list
+        distmat: [q, g], 每一对q和g的距离矩阵
+        output_html_path: 输出html地址。必须位于图片位置之前的文件夹,否则http服务器无法访问图片
+        AP: 如果为None则会直接使用distmat计算AP。否则使用AP的值。
+    """
+    html_abs_path = os.path.abspath(output_html_path)
+    html_abs_dir = os.path.split(html_abs_path)[0]
+    qids = np.array([q['id'] for q in query])
+    gids = np.array([g['id'] for g in gallery])
+
+    rows = []
+    for idx, q in enumerate(query):
+        row = {}
+
+        order = np.argsort(distmat[idx])
+        ordered_gids = gids[order]
+        ordered_gallery = [gallery[o] for o in order]
+        ordered_dist = distmat[idx][order]
+        orig_cmc = ordered_gids == qids[idx] 
+        if all_AP is None:
+            AP, _ = calc_AP(orig_cmc) 
+        else:
+            AP = all_AP[idx]
+        row['AP'] = f'{AP:.2f}'
+        row['query'] = {
+            "src": os.path.relpath(os.path.abspath(q["image_path"]), html_abs_dir),
+            "text": f"qid: {q['id']}"
+        }
+        for i in range(topk):
+            g = ordered_gallery[i]
+            color = 'green' if g['id'] == q['id'] else 'red'
+            row[f"rank{i}"] = {
+                'src': os.path.relpath(os.path.abspath(g['image_path']), html_abs_dir),
+                'text': f"result: {g['id'] == q['id']}, gid: {g['id']:.2f}, dist:{ordered_dist[i]:.2f}",
+                'style': f"""
+                border: 2mm solid {color};
+                """
+            }
+        rows.append(row)
+    
+    html = generate_html_table(rows, image_height=200, output_path=output_html_path)
     return html

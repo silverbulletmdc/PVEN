@@ -20,8 +20,8 @@ from yacs.config import CfgNode
 from vehicle_reid_pytorch.models import Baseline
 from vehicle_reid_pytorch.data import make_basic_dataset
 from model import ParsingReidModel, ParsingTripletLoss
-import numpy as np
 from math_tools import Clck_R1_mAP
+import numpy as np
 
 
 torch.set_printoptions(precision=2, linewidth=200, sci_mode=False)
@@ -101,6 +101,7 @@ def make_config():
     cfg.test.max_rank = 50
     cfg.test.rerank = False
     cfg.test.lambda_ = 0.0
+    cfg.test.output_html_path = ""
     # split: When the CUDA memory is not sufficient, 
     # we can split the dataset into different parts
     # for the computing of distance.
@@ -328,7 +329,8 @@ def train(config_files, cmd_config):
                       feat_norm=cfg.test.feat_norm,
                       remove_junk=cfg.test.remove_junk,
                       lambda_=cfg.test.lambda_,
-                      output_dir=cfg.output_dir)
+                      output_dir=cfg.output_dir,
+                      output_html_path=cfg.test.output_html_path)
 
         # save checkpoint
         if epoch % cfg.model.ckpt_period == 0 or epoch == 1:
@@ -383,14 +385,19 @@ def eval(config_files, cmd_config):
                               shuffle=False)
 
     query_length = meta_dataset.num_query_imgs
-    eval_(model, cfg.test.device, valid_loader, query_length, 
-          feat_norm=cfg.test.feat_norm,
-          remove_junk=cfg.test.remove_junk, 
-          max_rank=cfg.test.max_rank, 
-          output_dir=cfg.output_dir, 
-          lambda_=cfg.test.lambda_,
-          rerank=cfg.test.rerank, 
-          split=cfg.test.split)
+
+    if cfg.data.name.lower() == "vehicleid":
+        eval_vehicle_id_(model, valid_loader, query_length, cfg)
+    else:
+        eval_(model, cfg.test.device, valid_loader, query_length, 
+            feat_norm=cfg.test.feat_norm,
+            remove_junk=cfg.test.remove_junk, 
+            max_rank=cfg.test.max_rank, 
+            output_dir=cfg.output_dir, 
+            lambda_=cfg.test.lambda_,
+            rerank=cfg.test.rerank, 
+            split=cfg.test.split,
+            output_html_path=cfg.test.output_html_path)
 
 
 def eval_(model, 
@@ -403,7 +410,8 @@ def eval_(model,
           output_dir='', 
           rerank=False, 
           lambda_=0.5,
-          split=0):
+          split=0,
+          output_html_path=''):
     """实际测试函数
 
     Arguments:
@@ -428,12 +436,24 @@ def eval_(model,
                 if isinstance(item, torch.Tensor):
                     batch[name] = item.to("cuda")
             output = model(**batch)
-            global_feat = output["global_feat"].to(device)
-            local_feat = output["local_feat"].to(device)
-            vis_score = output["vis_score"].to(device)
-            metric.update((global_feat.detach().cpu(), local_feat.detach().cpu(), vis_score, batch["id"].cpu(), batch["cam"].cpu(), batch["image_path"]))
+            global_feat = output["global_feat"]
+            local_feat = output["local_feat"]
+            vis_score = output["vis_score"]
+            metric.update((global_feat.detach().cpu(), local_feat.detach().cpu(), vis_score.cpu(), batch["id"].cpu(), batch["cam"].cpu(), batch["image_path"]))
 
-    cmc, mAP = metric.compute(split=split)
+    metric_output = metric.compute(split=split)
+    cmc = metric_output['cmc'] 
+    mAP = metric_output['mAP']
+    distmat = metric_output['distmat'] 
+    all_AP = metric_output['all_AP']
+
+    if output_html_path != '':
+        from vehicle_reid_pytorch.utils.visualize import reid_html_table 
+        query = valid_loader.dataset.meta_dataset[:query_length]
+        gallery = valid_loader.dataset.meta_dataset[query_length:]
+        # distmat = np.random.rand(query_length, len(valid_loader.dataset.meta_dataset)-query_length)
+        reid_html_table(query, gallery, distmat, output_html_path, all_AP, topk=15)
+
 
     # distmat = metric.distmat
     # gallery_idxs = np.argsort(distmat, axis=-1)
@@ -455,6 +475,43 @@ def eval_(model,
         logger.info(f"CMC curve, Rank-{r:<3}:{cmc[r - 1]:.2%}")
     return cmc, mAP
 
+
+def eval_vehicle_id_(model, valid_loader, query_length, cfg):
+    metric = Clck_R1_mAP(query_length, 
+                         max_rank=cfg.test.max_rank, 
+                         rerank=cfg.test.rerank, 
+                         remove_junk=cfg.test.remove_junk, 
+                         feat_norm=cfg.test.feat_norm, 
+                         output_path=cfg.output_dir, 
+                         lambda_=cfg.test.lambda_)
+    model.eval()
+    with torch.no_grad():
+        for batch in tqdm(valid_loader):
+            for name, item in batch.items():
+                if isinstance(item, torch.Tensor):
+                    batch[name] = item.to("cuda")
+            output = model(**batch)
+            global_feat = output["global_feat"]
+            local_feat = output["local_feat"]
+            vis_score = output["vis_score"]
+            metric.update((global_feat.detach().cpu(), local_feat.detach().cpu(), vis_score.cpu(), batch["id"].cpu(), batch["cam"].cpu(), ""))
+    
+    mAPs = []
+    cmcs = []
+    for i in range(10):
+        metric.resplit_for_vehicleid()
+        metric_output = metric.compute(split=split)
+        cmc = metric_output['cmc'] 
+        mAP = metric_output['mAP']
+        mAPs.append(mAP)
+        cmcs.append(cmc)
+
+    mAP = np.mean(mAPs)
+    cmc = np.mean(cmcs, axis=0)
+    logger.info(f"mAP: {mAP:.2%}")
+    for r in [1, 5, 10]:
+        logger.info(f"CMC curve, Rank-{r:<3}:{cmc[r - 1]:.2%}")
+    return cmc, mAP
 
 if __name__ == '__main__':
     clk()

@@ -117,7 +117,7 @@ def eval_func_mp(distmat, q_pids, g_pids, q_camids, g_camids, max_rank=50, remov
     all_cmc = all_cmc.sum(0) / num_q
     mAP = np.mean(all_AP)
 
-    return all_cmc, mAP
+    return all_cmc, mAP, all_AP
 
 def worker(args):
     q_pid, q_camid, g_pids, g_camids, dist_vec, max_rank, remove_junk = args
@@ -133,22 +133,7 @@ def worker(args):
     # binary vector, positions with value 1 are correct matches
 #     orig_cmc = matches[q_idx][keep]
     orig_cmc = (g_pids[order] == q_pid).astype(np.int32)[keep]
-    if not np.any(orig_cmc):
-        # this condition is true when query identity does not appear in gallery
-        raise ValueError
-
-    cmc = orig_cmc.cumsum()
-    cmc[cmc > 1] = 1
-
-    # compute average precision
-    # reference: https://en.wikipedia.org/wiki/Evaluation_measures_(information_retrieval)#Average_precision
-    num_rel = orig_cmc.sum()
-    tmp_cmc = orig_cmc.cumsum()
-    tmp_cmc = [x / (i + 1.) for i, x in enumerate(tmp_cmc)]
-    tmp_cmc = np.asarray(tmp_cmc) * orig_cmc
-    AP = tmp_cmc.sum() / num_rel
-    # all_AP.append(AP)
-    # all_cmc.append(cmc[:max_rank])
+    AP, cmc = calc_AP(orig_cmc)
     return AP, cmc[:max_rank]
 
 def eval_func_th(distmat, q_pids, g_pids, q_camids, g_camids, max_rank=50, remove_junk=True):
@@ -215,3 +200,40 @@ def eval_func_th(distmat, q_pids, g_pids, q_camids, g_camids, max_rank=50, remov
     mAP = np.mean(all_AP)
 
     return all_cmc, mAP
+
+def calc_AP(orig_cmc):
+    """Evaluation
+
+    计算一行的AP值
+    """
+    # orig_cmc = (g_pids[order] == q_pid).astype(np.int32)[keep]
+    if not np.any(orig_cmc):
+        # this condition is true when query identity does not appear in gallery
+        raise ValueError
+
+    cmc = orig_cmc.cumsum()
+    cmc[cmc > 1] = 1
+
+    # compute average precision
+    # reference: https://en.wikipedia.org/wiki/Evaluation_measures_(information_retrieval)#Average_precision
+    num_rel = orig_cmc.sum()
+    tmp_cmc = orig_cmc.cumsum()
+    tmp_cmc = [x / (i + 1.) for i, x in enumerate(tmp_cmc)]  # Precision
+    tmp_cmc = np.asarray(tmp_cmc) * orig_cmc  # on Recall changed
+    AP = tmp_cmc.sum() / num_rel
+    return AP, cmc
+
+def get_expectation_of_AP(N=10, T=3):
+    """
+    蒙特卡洛方法获得AP期望值。
+
+    N: 样本总数
+    T: 正例数量
+    """
+    for i in range(1000):
+        idxs = np.random.choice(np.arange(N), T)
+        cmc = np.zeros(N)
+        cmc[idxs] = 1
+        AP = calc_AP(cmc)[0]
+        APs.append(AP)
+    print(np.mean(APs))
