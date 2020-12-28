@@ -500,7 +500,7 @@ def eval_vehicle_id_(model, valid_loader, query_length, cfg):
     cmcs = []
     for i in range(10):
         metric.resplit_for_vehicleid()
-        metric_output = metric.compute(split=split)
+        metric_output = metric.compute()
         cmc = metric_output['cmc'] 
         mAP = metric_output['mAP']
         mAPs.append(mAP)
