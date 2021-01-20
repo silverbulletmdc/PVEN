@@ -102,8 +102,9 @@ python main.py train -c configs/veriwild_b256_224_pven.yml
 
 ## Pretrained Models
 We provide the pretrained parsing model, VeRi776 ReID model and VERIWild ReID model ( the classification layer has been removed ) for your convinient.
+You can download it from the following link:
+Link: https://pan.baidu.com/s/1Q2NMVfGZPCskh-E6vmy9Cw  password: iiw1
 
-链接: https://pan.baidu.com/s/1Q2NMVfGZPCskh-E6vmy9Cw  密码: iiw1
 ## Evaluate PVEN
 ```shell
 cd examples/parsing_reid
