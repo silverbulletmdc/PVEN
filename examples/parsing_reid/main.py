@@ -513,5 +513,15 @@ def eval_vehicle_id_(model, valid_loader, query_length, cfg):
         logger.info(f"CMC curve, Rank-{r:<3}:{cmc[r - 1]:.2%}")
     return cmc, mAP
 
+@clk.command()
+@click.option('-i', '--model-path')
+@click.option('-o', '--output-path')
+def drop_linear(model_path, output_path):
+    model = torch.load(model_path)
+    for key in model.keys():
+        if 'classifier' in key:
+            model[key] = None
+    torch.save(model, output_path)
+
 if __name__ == '__main__':
     clk()

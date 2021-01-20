@@ -1,4 +1,5 @@
 import os
+import ipdb
 
 import torch
 from torch.nn import functional as F
@@ -12,31 +13,32 @@ from functools import reduce
 from vehicle_reid_pytorch.metrics.rerank import re_ranking
 
 
-def calc_dist_split(qf, gf, split=0):
-    qf = qf
-    m = qf.shape[0]
-    n = gf.shape[0]
-    distmat = gf.new(m, n)
+# def calc_dist_split(qf, gf, split=0):
+#     qf = qf
+#     m = qf.shape[0]
+#     n = gf.shape[0]
+#     distmat = gf.new(m, n)
 
-    if split == 0:
-        distmat = torch.pow(qf, 2).sum(dim=1, keepdim=True).expand(m, n) + \
-                torch.pow(gf, 2).sum(dim=1, keepdim=True).expand(n, m).t()
+#     if split == 0:
+#         distmat = torch.pow(qf, 2).sum(dim=1, keepdim=True).expand(m, n) + \
+#                 torch.pow(gf, 2).sum(dim=1, keepdim=True).expand(n, m).t()
+#         distmat.addmm_(x, y.t(), beta=1, alpha=-2)
 
-    # 用于测试时控制显存
-    else:
-        start = 0
-        while start < n:
-            end = start + split if (start + split) < n else n
-            num = end - start
+#     # 用于测试时控制显存
+#     else:
+#         start = 0
+#         while start < n:
+#             end = start + split if (start + split) < n else n
+#             num = end - start
 
-            sub_distmat = torch.pow(qf, 2).sum(dim=1, keepdim=True).expand(m, num) + \
-                    torch.pow(gf[start:end], 2).sum(dim=1, keepdim=True).expand(num, m).t()
-            # sub_distmat.addmm_(1, -2, qf, gf[start:end].t())
-            sub_distmat.addmm_(qf, gf[start:end].t(), beta=1, alpha=-2)
-            distmat[:, start:end] = sub_distmat.cpu()
-            start += num
+#             sub_distmat = torch.pow(qf, 2).sum(dim=1, keepdim=True).expand(m, num) + \
+#                     torch.pow(gf[start:end], 2).sum(dim=1, keepdim=True).expand(num, m).t()
+#             # sub_distmat.addmm_(1, -2, qf, gf[start:end].t())
+#             sub_distmat.addmm_(qf, gf[start:end].t(), beta=1, alpha=-2)
+#             distmat[:, start:end] = sub_distmat.cpu()
+#             start += num
 
-    return distmat
+#     return distmat
 
 
 def clck_dist(feat1, feat2, vis_score1, vis_score2, split=0):
@@ -58,7 +60,7 @@ def clck_dist(feat1, feat2, vis_score1, vis_score2, split=0):
         parse_feat2 = feat2[:, :, i]
         ckcl_ = torch.mm(vis_score1[:, i].view(-1, 1), vis_score2[:, i].view(1, -1))  # [N, N]
         ckcl += ckcl_
-        dist_mat += calc_dist_split(parse_feat1, parse_feat2, split=split).sqrt() * ckcl_
+        dist_mat += euclidean_dist(parse_feat1, parse_feat2, split=split).sqrt() * ckcl_
 
     return dist_mat / ckcl
 
@@ -165,7 +167,7 @@ class Clck_R1_mAP:
             if split == 0:
                 distmat = torch.pow(qf, 2).sum(dim=1, keepdim=True).expand(m, n) + \
                         torch.pow(gf, 2).sum(dim=1, keepdim=True).expand(n, m).t()
-                distmat.addmm_(1, -2, qf, gf.t())
+                distmat.addmm_(qf, gf.t(), beta=1, alpha=-2)
             else:
                 distmat = gf.new(m, n)
                 start = 0
@@ -207,7 +209,7 @@ class Clck_R1_mAP:
             torch.save(outputs, os.path.join(self.output_path, 'test_output.pkl'), pickle_protocol=4)
 
         print('Eval...')
-        cmc, mAP, all_AP = eval_func_mp(distmat + self.lambda_ * local_distmat, q_pids, g_pids, q_camids, g_camids,
+        cmc, mAP, all_AP = eval_func_mp(distmat + self.lambda_ * (local_distmat ** 2), q_pids, g_pids, q_camids, g_camids,
                              remove_junk=self.remove_junk)
 
         return {
