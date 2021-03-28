@@ -38,7 +38,7 @@ def veri776(input_path, output_path):
             sample["cam"] = camera
             output_dict[phase].append(sample)
     with open(output_path, "wb") as f:
-        pickle.dump(output_dict, f)
+        pkl.dump(output_dict, f)
 
 
 @main.command()
