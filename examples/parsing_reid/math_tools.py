@@ -58,9 +58,11 @@ def clck_dist(feat1, feat2, vis_score1, vis_score2, split=0):
     for i in range(N):
         parse_feat1 = feat1[:, :, i]
         parse_feat2 = feat2[:, :, i]
-        ckcl_ = torch.mm(vis_score1[:, i].view(-1, 1), vis_score2[:, i].view(1, -1))  # [N, N]
+        ckcl_ = torch.mm(vis_score1[:, i].view(-1, 1),
+                         vis_score2[:, i].view(1, -1))  # [N, N]
         ckcl += ckcl_
-        dist_mat += euclidean_dist(parse_feat1, parse_feat2, split=split).sqrt() * ckcl_
+        dist_mat += euclidean_dist(parse_feat1,
+                                   parse_feat2, split=split).sqrt() * ckcl_
 
     return dist_mat / ckcl
 
@@ -105,7 +107,27 @@ class Clck_R1_mAP:
         self.pids.extend(np.asarray(pid))
         self.camids.extend(np.asarray(camid))
         self.paths += paths
+
+    def save(self, path):
+        output_dict = {
+            "global_feats": self.global_feats,
+            "local_feats": self.local_feats,
+            "vis_scores": self.vis_scores,
+            "pids": self.pids,
+            "camids": self.camids,
+            "paths": self.paths
+        }
+        torch.save(output_dict, path)
     
+    def load(self, path):
+        dict = torch.load(path)
+        self.global_feats = dict["global_feats"] 
+        self.local_feats = dict["local_feats"] 
+        self.vis_scores = dict["vis_scores"] 
+        self.pids = dict["pids"] 
+        self.camids = dict["camids"] 
+        self.paths = dict["paths"] 
+
     def resplit_for_vehicleid(self):
         """每个ID随机选择一辆车组成gallery，剩下的为query。
         """
@@ -116,13 +138,14 @@ class Clck_R1_mAP:
         query_idxs = []
         gallery_idxs = []
         for idx, group in df.groupby('pid'):
-            gallery = group.sample(1)['index'][0]
+            gallery = group.sample(1)['index'].iloc[0]
             gallery_idxs.append(gallery)
-            for index in group.indexes:
+            for index in group.index:
                 if index != gallery:
                     query_idxs.append(index)
         re_idxs = query_idxs + gallery_idxs
 
+        self.num_query = len(query_idxs)
         # 重排序
         self.global_feats = [self.global_feats[i] for i in re_idxs]
         self.local_feats = [self.local_feats[i] for i in re_idxs]
@@ -130,7 +153,6 @@ class Clck_R1_mAP:
         self.pids = [self.pids[i] for i in re_idxs]
         self.camids = [self.camids[i] for i in re_idxs]
         self.paths = [self.paths[i] for i in re_idxs]
-
 
     def compute(self, split=0):
         """
@@ -166,7 +188,7 @@ class Clck_R1_mAP:
             # gf: N, F
             if split == 0:
                 distmat = torch.pow(qf, 2).sum(dim=1, keepdim=True).expand(m, n) + \
-                        torch.pow(gf, 2).sum(dim=1, keepdim=True).expand(n, m).t()
+                    torch.pow(gf, 2).sum(dim=1, keepdim=True).expand(n, m).t()
                 distmat.addmm_(qf, gf.t(), beta=1, alpha=-2)
             else:
                 distmat = gf.new(m, n)
@@ -176,7 +198,8 @@ class Clck_R1_mAP:
                     num = end - start
 
                     sub_distmat = torch.pow(qf, 2).sum(dim=1, keepdim=True).expand(m, num) + \
-                            torch.pow(gf[start:end], 2).sum(dim=1, keepdim=True).expand(num, m).t()
+                        torch.pow(gf[start:end], 2).sum(
+                            dim=1, keepdim=True).expand(num, m).t()
                     # sub_distmat.addmm_(1, -2, qf, gf[start:end].t())
                     sub_distmat.addmm_(qf, gf[start:end].t(), beta=1, alpha=-2)
                     distmat[:, start:end] = sub_distmat
@@ -206,15 +229,16 @@ class Clck_R1_mAP:
                 "distmat": distmat,
                 "local_distmat": local_distmat,
             }
-            torch.save(outputs, os.path.join(self.output_path, 'test_output.pkl'), pickle_protocol=4)
+            torch.save(outputs, os.path.join(self.output_path,
+                                             'test_output.pkl'), pickle_protocol=4)
 
         print('Eval...')
         cmc, mAP, all_AP = eval_func_mp(distmat + self.lambda_ * (local_distmat ** 2), q_pids, g_pids, q_camids, g_camids,
-                             remove_junk=self.remove_junk)
+                                        remove_junk=self.remove_junk)
 
         return {
             "cmc": cmc,
             "mAP": mAP,
             "distmat": distmat,
             "all_AP": all_AP
-        } 
+        }

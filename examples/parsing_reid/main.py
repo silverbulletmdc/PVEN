@@ -358,6 +358,7 @@ def eval(config_files, cmd_config):
 
     # Remove the classifier
     remove_keys = []
+    # import ipdb; ipdb.set_trace()
     for key, value in state_dict.items():
         if 'classifier' in key:
             remove_keys.append(key)
@@ -441,6 +442,11 @@ def eval_(model,
             vis_score = output["vis_score"]
             metric.update((global_feat.detach().cpu(), local_feat.detach().cpu(), vis_score.cpu(), batch["id"].cpu(), batch["cam"].cpu(), batch["image_path"]))
 
+
+    print(f'Saving features to {output_dir}/test_features.pkl')
+    metric.save(f'{output_dir}/test_features.pkl')
+
+    print(f'Computing')
     metric_output = metric.compute(split=split)
     cmc = metric_output['cmc'] 
     mAP = metric_output['mAP']
@@ -470,7 +476,7 @@ def eval_(model,
     # f.close()
 
     metric.reset()
-    logger.info(f"mAP: {mAP:.1%}")
+    logger.info(f"mAP: {mAP:.2%}")
     for r in [1, 5, 10]:
         logger.info(f"CMC curve, Rank-{r:<3}:{cmc[r - 1]:.2%}")
     return cmc, mAP
@@ -494,8 +500,7 @@ def eval_vehicle_id_(model, valid_loader, query_length, cfg):
             global_feat = output["global_feat"]
             local_feat = output["local_feat"]
             vis_score = output["vis_score"]
-            metric.update((global_feat.detach().cpu(), local_feat.detach().cpu(), vis_score.cpu(), batch["id"].cpu(), batch["cam"].cpu(), ""))
-    
+            metric.update((global_feat.detach().cpu(), local_feat.detach().cpu(), vis_score.cpu(), batch["id"].cpu(), batch["cam"].cpu(), batch['image_path']))
     mAPs = []
     cmcs = []
     for i in range(10):

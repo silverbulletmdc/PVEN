@@ -4,7 +4,6 @@ import pickle as pkl
 from torch.utils.data import Dataset
 from vehicle_reid_pytorch.utils.iotools import read_rgb_image
 import scipy.stats as st
-from pytorch3d.renderer import HardPhongShader, FoVPerspectiveCameras
 
 
 def get_imagedata_info(data):
