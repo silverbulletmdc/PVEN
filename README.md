@@ -93,7 +93,7 @@ Run the following model to train PVEN.
 ```shell
 cd examples/parsing_reid
 # For VeRi776
-CUDA_VISIBLE_DEVICES=0 python main.py train -c configs/veri776_b64_parsing.yml 
+CUDA_VISIBLE_DEVICES=0 python main.py train -c configs/veri776_b64_pven.yml 
 # For vehicleid, use 8 GPUs to train
 python main.py train -c configs/vehicleid_b256_pven.yml 
 # For VERIWild, use 8 GPUs to train
