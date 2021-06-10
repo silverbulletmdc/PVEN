@@ -1,6 +1,16 @@
 # PVEN
 This is the official implementation of article "Parsing-based viewaware embedding network for vehicle ReID"[[arxiv]](https://arxiv.org/abs/2004.05021), which has been accpeted by **CVPR20** as a poster article.
 
+## Attention!
+Since no test criteria are given in the VERIWild paper, the performance of veriwild provided in the PVEN article does not have the junk image removed. 
+The results with the junk image removed are provided to facilitate comparative experiments by subsequent researchers.
+
+| small mAP | small cmc@1 | small cmc@5 | medium mAP | medium cmc@1 | medium cmc@5 | large mAP | large cmc@1 | large cmc@5|
+|--         | ---         |  ---           |    ---     | ---          | ---          |   ---     |   ---       |  ---       |
+|79.80  |94.01 | 98.06 | 73.91          | 92.03          | 97.15          | 66.20          | 88.62 | 95.31 |
+
+Although the performance is slightly lower after removing the junk image, it is still higher than all comparative methods at the time of this paper, and therefore does not affect the core conclusions.
+
 ## Requirements
 1. python 3.6+
 2. torch 1.3.1+
