@@ -9,7 +9,7 @@ The results with the junk image removed are provided to facilitate comparative e
 |--         | ---         |  ---           |    ---     | ---          | ---          |   ---     |   ---       |  ---       |
 |79.80  |94.01 | 98.06 | 73.91          | 92.03          | 97.15          | 66.20          | 88.62 | 95.31 |
 
-Although the performance is slightly lower after removing the junk image, it is still higher than all comparative methods at the time of this paper, and therefore does not affect the core conclusions.
+Although the performance is slightly lower after removing the junk images, it is still higher than all comparative methods when the paper is published. Therefore it does not affect the core conclusions.
 
 ## Requirements
 1. python 3.6+
