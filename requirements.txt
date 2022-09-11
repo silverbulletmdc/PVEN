@@ -12,3 +12,4 @@ tensorboardX
 opencv-python
 asranger
 resnest
+click
